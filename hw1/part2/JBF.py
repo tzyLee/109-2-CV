@@ -6,14 +6,27 @@ class Joint_bilateral_filter(object):
     def __init__(self, sigma_s, sigma_r):
         self.sigma_r = sigma_r
         self.sigma_s = sigma_s
-        self.wndw_size = 6 * sigma_s + 1
-        self.pad_w = 3 * sigma_s
+        self.wndw_size = ws = 6 * sigma_s + 1
+        self.pad_w = r = 3 * sigma_s
+
+        # Pre-compute range kernel value (Gaussian(-255^2, sigma_r) ~ Gaussian(255^2, sigma_r))
+        cache = (np.arange(255 * 2 + 1) - 255) / 255
+        cache **= 2
+        cache /= -2 * sigma_r * sigma_r
+        np.exp(cache, out=cache)
+        self.cache = cache
+
+        # Pre-compute spatial kernel
+        ind = (np.arange(ws) - r) ** 2
+        kernel_s = -(ind + ind[:, np.newaxis]) / (2 * sigma_s * sigma_s)
+        np.exp(kernel_s, out=kernel_s)
+        self.kernel_s = kernel_s
 
     def joint_bilateral_filter(self, img, guidance):
         r = self.pad_w
         ws = self.wndw_size
-        sigma_s = self.sigma_s
-        sigma_r = self.sigma_r
+        kernel_s = self.kernel_s
+        cache = self.cache
 
         # Image padding
         BORDER_TYPE = cv2.BORDER_REFLECT
@@ -23,15 +36,6 @@ class Joint_bilateral_filter(object):
 
         output = np.zeros_like(img, dtype=np.float64)
         den = np.zeros((h, w))
-        # Pre-compute range kernel value (Gaussian(-255^2, sigma_r) ~ Gaussian(255^2, sigma_r))
-        cache = (np.arange(255 * 2 + 1) - 255) / 255
-        cache **= 2
-        cache /= -2 * sigma_r * sigma_r
-        np.exp(cache, out=cache)
-        # Pre-compute spatial kernel
-        ind = (np.arange(ws) - r) ** 2
-        kernel_s = -(ind + ind[:, np.newaxis]) / (2 * sigma_s * sigma_s)
-        np.exp(kernel_s, out=kernel_s)
 
         # Main body
         if I.ndim == 3 and G.ndim == 2:
