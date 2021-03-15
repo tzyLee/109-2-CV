@@ -28,18 +28,18 @@ class Joint_bilateral_filter(object):
         cache **= 2
         cache /= -2 * sigma_r * sigma_r
         np.exp(cache, out=cache)
+        # Pre-compute spatial kernel
+        ind = (np.arange(ws) - r) ** 2
+        kernel_s = -(ind + ind[:, np.newaxis]) / (2 * sigma_s * sigma_s)
+        np.exp(kernel_s, out=kernel_s)
 
         # Main body
         if I.ndim == 3 and G.ndim == 2:
             center = G[r : r + h, r : r + w]
             for offset in range(ws ** 2):
                 y, x = divmod(offset, ws)
-                # scalar
-                kernel_s = np.exp(
-                    -((y - r) ** 2 + (x - r) ** 2) / (2 * sigma_s * sigma_s)
-                )
                 # (h, w)
-                kernel = cache[G[y : y + h, x : x + w] - center + 255] * kernel_s
+                kernel = cache[G[y : y + h, x : x + w] - center + 255] * kernel_s[y, x]
                 output += kernel[..., np.newaxis] * I[y : y + h, x : x + w, :]
                 den += kernel
             output /= den[..., np.newaxis]
@@ -47,14 +47,10 @@ class Joint_bilateral_filter(object):
             center = G[r : r + h, r : r + w, :]
             for offset in range(ws ** 2):
                 y, x = divmod(offset, ws)
-                # scalar
-                kernel_s = np.exp(
-                    -((y - r) ** 2 + (x - r) ** 2) / (2 * sigma_s * sigma_s)
-                )
                 # (h, w)
                 kernel = (
                     cache[G[y : y + h, x : x + w, :] - center + 255].prod(axis=-1)
-                    * kernel_s
+                    * kernel_s[y, x]
                 )
                 output += kernel[..., np.newaxis] * I[y : y + h, x : x + w, :]
                 den += kernel
