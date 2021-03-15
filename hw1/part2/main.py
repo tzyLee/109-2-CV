@@ -38,39 +38,51 @@ def main():
                 points.append([float(num) for num in vals])
 
     jbf = Joint_bilateral_filter(sigma_s, sigma_r)
+
+    names = ["cv2_gray"]
+    names.extend(f"{r}_{g}_{b}_gray" for r, g, b in points)
+    # (N, 1, 1, 3), the last axis is reversed (r, g, b) -> (b, g, r)
+    weights = np.array(points)[:, np.newaxis, np.newaxis, ::-1]
+
+    # (N+1, h, w)
+    gray = np.concatenate(
+        (
+            cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)[np.newaxis, ...],
+            # (N, h, w, 3) -> (N, h, w)
+            (img * weights).sum(axis=-1).astype(np.uint8),
+        )
+    )
+
     bf = jbf.joint_bilateral_filter(img, img)
+    # (N+1, h, w, 3)
+    jbf_out = np.zeros((len(names), *img.shape), dtype=np.uint8)
+    for i in range(len(names)):
+        jbf_out[i, ...] = jbf.joint_bilateral_filter(img, gray[i, ...])
+    l1_norm = jbf_out.astype(np.int32) - bf
+    np.abs(l1_norm, out=l1_norm)
+    diff = l1_norm.sum(axis=(1, 2, 3))
+
+    # Show and save output
     cv2.imshow("bf", bf)
+    cv2.imwrite(f"{args.image_path}_bf.png", bf)
 
-    grays = []
+    max_ind = np.argmax(diff)
+    min_ind = np.argmin(diff)
+    for i, name in enumerate(names):
+        cv2.imshow(name, gray[i, ...])
+        cv2.imwrite(f"{args.image_path}_{name}.png", gray[i, ...])
 
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    grays.append(gray)
-    cv2.imshow("cv2 gray", gray)
-    cv2.imwrite(f"{args.image_path}_cv2_gray.png", gray)
+        cv2.imshow(f"{name}_jbf", jbf_out[i, ...])
+        cv2.imwrite(f"{args.image_path}_{name}_jbf.png", jbf_out[i, ...])
 
-    for r, g, b in points:
-        weights = np.array([b, g, r])
-        gray = (img * weights).sum(axis=-1).astype(np.uint8)
-        grays.append(gray)
-        cv2.imshow(f"r={r} g={g} b={b}", gray)
-        cv2.imwrite(f"{args.image_path}_{r}_{g}_{b}.png", gray)
+        print(f"{name}: {diff[i]}", end="")
+        if i == max_ind:
+            print(" (max)")
+        elif i == min_ind:
+            print(" (min)")
+        else:
+            print()
 
-    minInd = 0
-    minDiff = float("inf")
-    for ind, gray in enumerate(grays):
-        out = jbf.joint_bilateral_filter(img, gray)
-        l1_norm = out.astype(np.int32) - bf
-        np.abs(l1_norm, out=l1_norm)
-
-        diff = l1_norm.sum()
-        if diff < minDiff:
-            minDiff = diff
-            minInd = ind
-
-    if minInd == 0:
-        print("best weights are default weights")
-    else:
-        print("best weights are", points[minInd - 1])
     key = cv2.waitKey()
     cv2.destroyAllWindows()
 
