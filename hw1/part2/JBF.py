@@ -22,16 +22,19 @@ class Joint_bilateral_filter(object):
         np.exp(kernel_s, out=kernel_s)
         self.kernel_s = kernel_s
 
+        self.offsets = [divmod(i, ws) for i in range(ws * ws)]
+
     def joint_bilateral_filter(self, img, guidance):
         r = self.pad_w
         ws = self.wndw_size
         kernel_s = self.kernel_s
         cache = self.cache
+        offsets = self.offsets
 
         # Image padding
         BORDER_TYPE = cv2.BORDER_REFLECT
         I = cv2.copyMakeBorder(img, r, r, r, r, BORDER_TYPE)
-        G = cv2.copyMakeBorder(guidance, r, r, r, r, BORDER_TYPE).astype(np.int32)
+        G = cv2.copyMakeBorder(guidance, r, r, r, r, BORDER_TYPE).astype(np.int16)
         h, w, ch = img.shape
 
         output = np.zeros_like(img, dtype=np.float64)
@@ -40,8 +43,7 @@ class Joint_bilateral_filter(object):
         # Main body
         if I.ndim == 3 and G.ndim == 2:
             center = G[r : r + h, r : r + w]
-            for offset in range(ws ** 2):
-                y, x = divmod(offset, ws)
+            for y, x in offsets:
                 # (h, w)
                 kernel = cache[G[y : y + h, x : x + w] - center + 255] * kernel_s[y, x]
                 output += kernel[..., np.newaxis] * I[y : y + h, x : x + w, :]
@@ -49,8 +51,7 @@ class Joint_bilateral_filter(object):
             output /= den[..., np.newaxis]
         elif I.ndim == 3 and G.ndim == 3:
             center = G[r : r + h, r : r + w, :]
-            for offset in range(ws ** 2):
-                y, x = divmod(offset, ws)
+            for y, x in offsets:
                 # (h, w)
                 kernel = (
                     cache[G[y : y + h, x : x + w, :] - center + 255].prod(axis=-1)
