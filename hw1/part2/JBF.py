@@ -9,8 +9,8 @@ class Joint_bilateral_filter(object):
         self.wndw_size = ws = 6 * sigma_s + 1
         self.pad_w = r = 3 * sigma_s
 
-        # Pre-compute range kernel value (Gaussian(-255^2, sigma_r) ~ Gaussian(255^2, sigma_r))
-        cache = (np.arange(255 * 2 + 1) - 255) / 255
+        # Pre-compute range kernel value (Gaussian(0^2, sigma_r) ~ Gaussian(255^2, sigma_r))
+        cache = np.arange(256) / 255
         cache **= 2
         cache /= -2 * sigma_r * sigma_r
         np.exp(cache, out=cache)
@@ -34,7 +34,7 @@ class Joint_bilateral_filter(object):
         # Image padding
         BORDER_TYPE = cv2.BORDER_REFLECT
         I = cv2.copyMakeBorder(img, r, r, r, r, BORDER_TYPE)
-        G = cv2.copyMakeBorder(guidance, r, r, r, r, BORDER_TYPE).astype(np.int16)
+        G = cv2.copyMakeBorder(guidance, r, r, r, r, BORDER_TYPE)
         h, w, ch = img.shape
 
         output = np.zeros_like(img, dtype=np.float64)
@@ -45,7 +45,9 @@ class Joint_bilateral_filter(object):
             center = G[r : r + h, r : r + w]
             for y, x in offsets:
                 # (h, w)
-                kernel = cache[G[y : y + h, x : x + w] - center + 255] * kernel_s[y, x]
+                kernel = (
+                    cache[cv2.absdiff(G[y : y + h, x : x + w], center)] * kernel_s[y, x]
+                )
                 output += kernel[..., np.newaxis] * I[y : y + h, x : x + w, :]
                 den += kernel
             output /= den[..., np.newaxis]
@@ -54,7 +56,7 @@ class Joint_bilateral_filter(object):
             for y, x in offsets:
                 # (h, w)
                 kernel = (
-                    cache[G[y : y + h, x : x + w, :] - center + 255].prod(axis=-1)
+                    cache[cv2.absdiff(G[y : y + h, x : x + w, :], center)].prod(axis=-1)
                     * kernel_s[y, x]
                 )
                 output += kernel[..., np.newaxis] * I[y : y + h, x : x + w, :]
