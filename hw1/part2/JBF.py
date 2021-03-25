@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+from cv2 import absdiff
 
 
 class Joint_bilateral_filter(object):
@@ -46,22 +47,22 @@ class Joint_bilateral_filter(object):
             for y, x in offsets:
                 # (h, w)
                 kernel = (
-                    cache[cv2.absdiff(G[y : y + h, x : x + w], center)] * kernel_s[y, x]
+                    cache[absdiff(G[y : y + h, x : x + w], center)] * kernel_s[y, x]
                 )
-                output += kernel[..., np.newaxis] * I[y : y + h, x : x + w, :]
+                output += kernel[..., None] * I[y : y + h, x : x + w, :]
                 den += kernel
-            output /= den[..., np.newaxis]
+            output /= den[..., None]
         elif I.ndim == 3 and G.ndim == 3:
             center = G[r : r + h, r : r + w, :]
             for y, x in offsets:
                 # (h, w)
                 kernel = (
-                    cache[cv2.absdiff(G[y : y + h, x : x + w, :], center)].prod(axis=-1)
+                    cache[absdiff(G[y : y + h, x : x + w, :], center)].prod(axis=-1)
                     * kernel_s[y, x]
                 )
-                output += kernel[..., np.newaxis] * I[y : y + h, x : x + w, :]
+                output += kernel[..., None] * I[y : y + h, x : x + w, :]
                 den += kernel
-            output /= den[..., np.newaxis]
+            output /= den[..., None]
 
         np.clip(output, 0, 255, out=output)
         return output.astype(np.uint8)
