@@ -22,7 +22,7 @@ from glob import glob
 # 1) Tiny image features and nearest neighbor classifier
 # 2) Bag of sift features and nearest neighbor classifier
 
-#The starter code does not crash when run unmodified 
+#The starter code does not crash when run unmodified
 #and you can get a preview of how results are presented.
 
 parser = argparse.ArgumentParser()
@@ -66,12 +66,11 @@ def main():
     # TODO Step 1:
     # Represent each image with the appropriate feature
     # Each function to construct features should return an N x d matrix, where
-    # N is the number of paths passed to the function and d is the 
+    # N is the number of paths passed to the function and d is the
     # dimensionality of each image representation. See the starter code for
     # each function for more details.
 
     if FEATURE == 'tiny_image':
-        # TODO Modify get_tiny_images.py 
         train_image_feats = get_tiny_images(train_image_paths)
         test_image_feats = get_tiny_images(test_image_paths)
 
@@ -100,15 +99,15 @@ def main():
         else:
             with open('test_image_feats.pkl', 'rb') as handle:
                 test_image_feats = pickle.load(handle)
-    
+
     elif FEATURE == 'dumy_feature':
         train_image_feats = []
         test_image_feats = []
-    
+
     else:
         raise NameError('Unknown feature type')
 
-    # TODO Step 2: 
+    # TODO Step 2:
     # Classify each test image by training and using the appropriate classifier
     # Each function to classify test features will return an N x 1 array,
     # where N is the number of test cases and each entry is a string indicating
@@ -119,12 +118,12 @@ def main():
     if CLASSIFIER == 'nearest_neighbor':
         # TODO Modify nearest_neighbor_classify.py
         predicted_categories = nearest_neighbor_classify(train_image_feats, train_labels, test_image_feats)
-    
+
     elif CLASSIFIER == 'dumy_classifier':
         # The dummy classifier simply predicts a random category for every test case
         predicted_categories = test_labels[:]
         shuffle(predicted_categories)
-    
+
     else:
         raise NameError('Unknown classifier type')
 
@@ -133,10 +132,10 @@ def main():
     test_labels_ids = [CATE2ID[x] for x in test_labels]
     predicted_categories_ids = [CATE2ID[x] for x in predicted_categories]
     train_labels_ids = [CATE2ID[x] for x in train_labels]
-    
+
     # Step 3: Build a confusion matrix and score the recognition system
-    # You do not need to code anything in this section. 
-   
+    # You do not need to code anything in this section.
+
     build_confusion_mtx(test_labels_ids, predicted_categories_ids, ABBR_CATEGORIES)
 
 def build_confusion_mtx(test_labels_ids, predicted_categories, abbr_categories):
@@ -149,7 +148,7 @@ def build_confusion_mtx(test_labels_ids, predicted_categories, abbr_categories):
     plt.figure()
     plot_confusion_matrix(cm_normalized, abbr_categories, title='Normalized confusion matrix')
     plt.savefig("{}.png".format(FEATURE))
-     
+
 def plot_confusion_matrix(cm, category, title='Confusion matrix', cmap=plt.cm.Blues):
     plt.imshow(cm, interpolation='nearest', cmap=cmap)
     plt.title(title)

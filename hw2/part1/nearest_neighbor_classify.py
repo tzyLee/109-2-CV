@@ -19,24 +19,29 @@ def nearest_neighbor_classify(train_image_feats, train_labels, test_image_feats)
     #       e.g. distance.cdist(? ?)                                          #
     ###########################################################################
     '''
-    Input : 
-        train_image_feats : 
-            image_feats is an (N, d) matrix, where d is the 
+    Input :
+        train_image_feats :
+            image_feats is an (N, d) matrix, where d is the
             dimensionality of the feature representation.
 
-        train_labels : 
+        train_labels :
             image_feats is a list of string, each string
-            indicate the ground truth category for each training image. 
+            indicate the ground truth category for each training image.
 
-        test_image_feats : 
-            image_feats is an (M, d) matrix, where d is the 
+        test_image_feats :
+            image_feats is an (M, d) matrix, where d is the
             dimensionality of the feature representation.
     Output :
-        test_predicts : 
+        test_predicts :
             a list(M) of string, each string indicate the predict
             category for each testing image.
     '''
-
+    k = 2
+    N = train_image_feats.shape[0]
+    dist = distance.cdist(test_image_feats, train_image_feats)
+    ind = dist.argpartition(kth=k)[..., :k]
+    predict = np.apply_along_axis(np.bincount, axis=1, arr=ind, minlength=N).argmax(axis=1)
+    test_predicts = [train_labels[id] for id in predict]
     #############################################################################
     #                                END OF YOUR CODE                           #
     #############################################################################
