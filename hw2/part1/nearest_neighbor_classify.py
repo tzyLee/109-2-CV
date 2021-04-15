@@ -4,6 +4,7 @@ import numpy as np
 import scipy.spatial.distance as distance
 from scipy.stats import mode
 
+
 def nearest_neighbor_classify(train_image_feats, train_labels, test_image_feats):
     ###########################################################################
     # TODO:                                                                   #
@@ -18,7 +19,7 @@ def nearest_neighbor_classify(train_image_feats, train_labels, test_image_feats)
     #   This function will calculate the distance between two list of features#
     #       e.g. distance.cdist(? ?)                                          #
     ###########################################################################
-    '''
+    """
     Input :
         train_image_feats :
             image_feats is an (N, d) matrix, where d is the
@@ -35,12 +36,23 @@ def nearest_neighbor_classify(train_image_feats, train_labels, test_image_feats)
         test_predicts :
             a list(M) of string, each string indicate the predict
             category for each testing image.
-    '''
-    k = 2
+    """
+    # k = 50
+    # N = train_image_feats.shape[0]
+    # dist = distance.cdist(test_image_feats, train_image_feats, metric="cityblock")
+    # ind = dist.argpartition(kth=k)[..., :k]
+    # test_predicts = [
+    #     train_labels[np.bincount(ind_row, weights=(1 / dist[i, ind_row])).argmax()]
+    #     for i, ind_row in enumerate(ind)
+    # ]
+
+    k = 3
     N = train_image_feats.shape[0]
-    dist = distance.cdist(test_image_feats, train_image_feats)
+    dist = distance.cdist(test_image_feats, train_image_feats, metric="cityblock")
     ind = dist.argpartition(kth=k)[..., :k]
-    predict = np.apply_along_axis(np.bincount, axis=1, arr=ind, minlength=N).argmax(axis=1)
+    predict = np.apply_along_axis(np.bincount, axis=1, arr=ind, minlength=N).argmax(
+        axis=1
+    )
     test_predicts = [train_labels[id] for id in predict]
     #############################################################################
     #                                END OF YOUR CODE                           #
