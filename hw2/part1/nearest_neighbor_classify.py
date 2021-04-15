@@ -37,23 +37,17 @@ def nearest_neighbor_classify(train_image_feats, train_labels, test_image_feats)
             a list(M) of string, each string indicate the predict
             category for each testing image.
     """
-    # k = 50
-    # N = train_image_feats.shape[0]
-    # dist = distance.cdist(test_image_feats, train_image_feats, metric="cityblock")
-    # ind = dist.argpartition(kth=k)[..., :k]
-    # test_predicts = [
-    #     train_labels[np.bincount(ind_row, weights=(1 / dist[i, ind_row])).argmax()]
-    #     for i, ind_row in enumerate(ind)
-    # ]
-
-    k = 3
+    k = 10
     N = train_image_feats.shape[0]
     dist = distance.cdist(test_image_feats, train_image_feats, metric="cityblock")
     ind = dist.argpartition(kth=k)[..., :k]
-    predict = np.apply_along_axis(np.bincount, axis=1, arr=ind, minlength=N).argmax(
-        axis=1
-    )
-    test_predicts = [train_labels[id] for id in predict]
+    test_predicts = [
+        train_labels[
+            np.bincount(ind_row, weights=(1 / (dist[i, ind_row] + 1e-12))).argmax()
+        ]
+        # + 1e-12 to prevent divide by zero
+        for i, ind_row in enumerate(ind)
+    ]
     #############################################################################
     #                                END OF YOUR CODE                           #
     #############################################################################

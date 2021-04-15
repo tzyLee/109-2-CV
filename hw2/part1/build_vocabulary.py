@@ -1,15 +1,15 @@
-from PIL import Image
+import cv2
 import numpy as np
 from cyvlfeat.sift.dsift import dsift
 from cyvlfeat.kmeans import kmeans
 from time import time
 
-#This function will sample SIFT descriptors from the training images,
-#cluster them with kmeans, and then return the cluster centers.
+# This function will sample SIFT descriptors from the training images,
+# cluster them with kmeans, and then return the cluster centers.
+
 
 def build_vocabulary(image_paths, vocab_size):
     ##################################################################################
-    # TODO:                                                                          #
     # Load images from the training set. To save computation time, you don't         #
     # necessarily need to sample from all images, although it would be better        #
     # to do so. You can randomly sample the descriptors from each image to save      #
@@ -46,19 +46,29 @@ def build_vocabulary(image_paths, vocab_size):
     #                                                                                #
     # NOTE:                                                                          #
     #   e.g. 1. dsift(img, step=[?,?], fast=True)                                    #
-    #        2. kmeans( ? , vocab_size)                                              #  
+    #        2. kmeans( ? , vocab_size)                                              #
     #                                                                                #
     # ################################################################################
-    '''
-    Input : 
+    """
+    Input :
         image_paths : a list of training image path
         vocal size : number of clusters desired
     Output :
         Clusters centers of Kmeans
-    '''
+    """
 
+    n = len(image_paths)
+    sift_descriptors = []
+    for path in image_paths:
+        img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
+        _, descriptors = dsift(img, step=(20, 20), fast=True, float_descriptors=True)
+        sift_descriptors.append(descriptors)
+
+    sift_descriptors = np.vstack(sift_descriptors)
+    print(sift_descriptors.shape)
+
+    vocab = kmeans(sift_descriptors, vocab_size, initialization="PLUSPLUS")
     ##################################################################################
     #                                END OF YOUR CODE                                #
     ##################################################################################
     return vocab
-
