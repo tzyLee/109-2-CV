@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.interpolate import LinearNDInterpolator
 
 
 def solve_homography(u, v):
@@ -10,22 +11,33 @@ def solve_homography(u, v):
     :return:
     """
     N = u.shape[0]
-    H = None
+    H = np.zeros((9,))
 
     if v.shape[0] is not N:
-        print('u and v should have the same size')
+        print("u and v should have the same size")
         return None
     if N < 4:
-        print('At least 4 points should be given')
+        print("At least 4 points should be given")
 
-    # TODO: 1.forming A
+    # 1.forming A
+    A = np.zeros((2 * N, 9))
+    A[::2, :2] = u
+    A[::2, 2] = 1
+    A[::2, 6:8] = -v[:, 0, np.newaxis] * u
+    A[::2, 8] = -v[:, 0]
 
-    # TODO: 2.solve H with A
+    A[1::2, 3:5] = u
+    A[1::2, 5] = 1
+    A[1::2, 6:8] = -v[:, 1, np.newaxis] * u
+    A[1::2, 8] = -v[:, 1]
 
+    # 2.solve H with A
+    _, _, vh = np.linalg.svd(A)
+    H = vh[-1, :].reshape((3, 3))
     return H
 
 
-def warping(src, dst, H, ymin, ymax, xmin, xmax, direction='b'):
+def warping(src, dst, H, ymin, ymax, xmin, xmax, direction="b"):
     """
     Perform forward/backward warpping without for loops. i.e.
     for all pixels in src(xmin~xmax, ymin~ymax),  warp to destination
@@ -62,11 +74,15 @@ def warping(src, dst, H, ymin, ymax, xmin, xmax, direction='b'):
     h_dst, w_dst, ch = dst.shape
     H_inv = np.linalg.inv(H)
 
-    # TODO: 1.meshgrid the (x,y) coordinate pairs
+    # 1.meshgrid the (y, x) coordinate pairs
+    coords = np.dstack(
+        np.meshgrid(np.arange(xmin, xmax), np.arange(ymin, ymax))
+    ).reshape((-1, 2))
 
-    # TODO: 2.reshape the destination pixels as N x 3 homogeneous coordinate
-
-    if direction == 'b':
+    N = coords.shape[0]
+    # 2.reshape the destination pixels as N x 3 homogeneous coordinate
+    u = np.hstack((coords, np.ones((N, 1), dtype=coords.dtype)))
+    if direction == "b":
         # TODO: 3.apply H_inv to the destination pixels and retrieve (u,v) pixels, then reshape to (ymax-ymin),(xmax-xmin)
 
         # TODO: 4.calculate the mask of the transformed coordinate (should not exceed the boundaries of source image)
@@ -76,16 +92,20 @@ def warping(src, dst, H, ymin, ymax, xmin, xmax, direction='b'):
         # TODO: 6. assign to destination image with proper masking
 
         pass
-
-    elif direction == 'f':
-        # TODO: 3.apply H to the source pixels and retrieve (u,v) pixels, then reshape to (ymax-ymin),(xmax-xmin)
-
-        # TODO: 4.calculate the mask of the transformed coordinate (should not exceed the boundaries of destination image)
-
-        # TODO: 5.filter the valid coordinates using previous obtained mask
-
-        # TODO: 6. assign to destination image using advanced array indicing
-
-        pass
+    elif direction == "f":
+        # 3.apply H to the source pixels and retrieve (u,v) pixels, then reshape to (ymax-ymin),(xmax-xmin)
+        v = u @ H.T
+        v[:, :2] /= v[:, 2, np.newaxis]
+        v = v[:, :2]
+        np.around(v, out=v)
+        # 4.calculate the mask of the transformed coordinate (should not exceed the boundaries of destination image)
+        xy_min = np.array([0, 0])
+        xy_max = np.array([w_dst, h_dst])
+        mask = (xy_min <= v).all(axis=1) & (v < xy_max).all(axis=1)
+        # 5.filter the valid coordinates using previous obtained mask
+        u = u[mask, :2]
+        v = v[mask, :].astype(np.int32)
+        # 6. assign to destination image using advanced array indicing
+        dst[v[:, 1], v[:, 0], :] = src[u[:, 1], u[:, 0], :]
 
     return dst
