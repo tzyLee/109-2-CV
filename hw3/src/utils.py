@@ -83,15 +83,20 @@ def warping(src, dst, H, ymin, ymax, xmin, xmax, direction="b"):
     # 2.reshape the destination pixels as N x 3 homogeneous coordinate
     u = np.hstack((coords, np.ones((N, 1), dtype=coords.dtype)))
     if direction == "b":
-        # TODO: 3.apply H_inv to the destination pixels and retrieve (u,v) pixels, then reshape to (ymax-ymin),(xmax-xmin)
-
-        # TODO: 4.calculate the mask of the transformed coordinate (should not exceed the boundaries of source image)
-
-        # TODO: 5.sample the source image with the masked and reshaped transformed coordinates
-
-        # TODO: 6. assign to destination image with proper masking
-
-        pass
+        # 3.apply H_inv to the destination pixels and retrieve (u,v) pixels, then reshape to (ymax-ymin),(xmax-xmin)
+        v = u @ H_inv.T
+        v[:, :2] /= v[:, 2, np.newaxis]
+        v = v[:, :2]
+        np.around(v, out=v)
+        # 4.calculate the mask of the transformed coordinate (should not exceed the boundaries of source image)
+        xy_min = np.array([0, 0])
+        xy_max = np.array([w_src, h_src])
+        mask = (xy_min <= v).all(axis=1) & (v < xy_max).all(axis=1)
+        # 5.sample the source image with the masked and reshaped transformed coordinates
+        u = u[mask, :2]
+        v = v[mask, :].astype(np.int32)
+        # 6. assign to destination image with proper masking
+        dst[u[:, 1], u[:, 0], :] = src[v[:, 1], v[:, 0], :]
     elif direction == "f":
         # 3.apply H to the source pixels and retrieve (u,v) pixels, then reshape to (ymax-ymin),(xmax-xmin)
         v = u @ H.T
