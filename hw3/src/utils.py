@@ -83,8 +83,9 @@ def warping(src, dst, H, ymin, ymax, xmin, xmax, direction="b"):
     # 2.reshape the destination pixels as N x 3 homogeneous coordinate
     u = np.hstack((coords, np.ones((N, 1), dtype=coords.dtype)))
     if direction == "b":
+        H_inv_T = np.transpose(H_inv)
         # 3.apply H_inv to the destination pixels and retrieve (u,v) pixels, then reshape to (ymax-ymin),(xmax-xmin)
-        v = u @ H_inv.T
+        v = u @ H_inv_T
         v[:, :2] /= v[:, 2, np.newaxis]
         v = v[:, :2]
         np.around(v, out=v)
@@ -98,8 +99,9 @@ def warping(src, dst, H, ymin, ymax, xmin, xmax, direction="b"):
         # 6. assign to destination image with proper masking
         dst[u[:, 1], u[:, 0], :] = src[v[:, 1], v[:, 0], :]
     elif direction == "f":
+        H_T = np.transpose(H)
         # 3.apply H to the source pixels and retrieve (u,v) pixels, then reshape to (ymax-ymin),(xmax-xmin)
-        v = u @ H.T
+        v = u @ H_T
         v[:, :2] /= v[:, 2, np.newaxis]
         v = v[:, :2]
         np.around(v, out=v)
