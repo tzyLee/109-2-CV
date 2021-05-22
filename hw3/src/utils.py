@@ -19,26 +19,31 @@ def solve_homography(u, v):
     if N < 4:
         print("At least 4 points should be given")
 
-    UMean = np.mean(u, axis=0)
-    UMaxStd = np.std(u, axis=0).max() + 1e-14
+    UMean = u.mean(axis=0)
+    UL1NormMean = u - UMean
+    UL1NormMean = np.absolute(UL1NormMean, out=UL1NormMean)
+    UL1NormMean = UL1NormMean.mean(axis=0)
     u = u - UMean
-    u /= UMaxStd
-    S1 = np.array(
+    u /= UL1NormMean
+
+    VMean = np.mean(v, axis=0)
+    VL1NormMean = v - VMean
+    VL1NormMean = np.absolute(VL1NormMean, out=VL1NormMean)
+    VL1NormMean = VL1NormMean.mean(axis=0)
+    v = v - VMean
+    v /= VL1NormMean
+
+    invHNorm = np.array(
         [
-            [1 / UMaxStd, 0, -UMean[0] / UMaxStd],
-            [0, 1 / UMaxStd, -UMean[1] / UMaxStd],
+            [VL1NormMean[0], 0, VMean[0]],
+            [0, VL1NormMean[1], VMean[1]],
             [0, 0, 1],
         ]
     )
-
-    VMean = np.mean(v, axis=0)
-    VMaxStd = np.std(v, axis=0).max() + 1e-14
-    v = v - VMean
-    v /= VMaxStd
-    S2 = np.array(
+    HNorm2 = np.array(
         [
-            [1 / VMaxStd, 0, -VMean[0] / VMaxStd],
-            [0, 1 / VMaxStd, -VMean[1] / VMaxStd],
+            [1 / UL1NormMean[0], 0, -UMean[0] / UL1NormMean[0]],
+            [0, 1 / UL1NormMean[1], -UMean[1] / UL1NormMean[1]],
             [0, 0, 1],
         ]
     )
@@ -58,8 +63,7 @@ def solve_homography(u, v):
     # 2.solve H with A
     _, _, vh = np.linalg.svd(A)
     H = vh[-1, :].reshape((3, 3))
-
-    H = np.linalg.inv(S2) @ H @ S1
+    H = invHNorm @ H @ HNorm2
     return H
 
 
