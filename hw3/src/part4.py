@@ -22,9 +22,9 @@ def panorama(imgs):
     dst[: imgs[0].shape[0], : imgs[0].shape[1]] = imgs[0]
     accumulatedH = np.eye(3)
     out = None
-    orb = cv2.ORB_create(nfeatures=320)
+    orb = cv2.ORB_create()
     bf = cv2.BFMatcher_create(cv2.NORM_HAMMING, crossCheck=True)
-    rng = np.random.default_rng(seed=82)
+    rng = np.random.default_rng(seed=4146458350)
 
     # for all images to be stitched:
     for idx in range(len(imgs) - 1):
@@ -35,8 +35,6 @@ def panorama(imgs):
         kp1, des1 = orb.detectAndCompute(im1, None)
         kp2, des2 = orb.detectAndCompute(im2, None)
         matches = bf.match(des1, des2)
-        matches.sort(key=lambda m: m.distance)
-        matches = matches[: int(0.92 * len(matches))]
         nMatch = len(matches)
 
         # Transform List[cv2.KeyPoint] into np.array of [[x, y]]
@@ -58,9 +56,8 @@ def panorama(imgs):
         nIter = 100000
         maxNInlier = 0
         maxInlierMask = None
-        nInlierThreshold = nMatch * 0.95
-        distThreshold = 0.94
-        p = 0.96  # Probability of at least one sample is free of outliers
+        distThreshold = 3
+        p = 0.995  # Probability of at least one sample is free of outliers
 
         # Repeat for N iterations, select the largest inlier set
         while it < nIter:
@@ -74,22 +71,18 @@ def panorama(imgs):
             # Find the inliers (within distance threshold t)
             x2 = kp2Full @ H_T
             x2[:, :2] /= x2[:, 2, np.newaxis] + 1e-16
-
             dist = np.linalg.norm(x2[:, :2] - kp1, axis=1)
 
-            inlierMask = dist < distThreshold
+            inlierMask = dist <= distThreshold
             nInlier = np.count_nonzero(inlierMask)
 
-            if nInlier > maxNInlier:
+            if nInlier > maxNInlier and nInlier >= 4:
                 maxNInlier = nInlier
                 maxInlierMask = inlierMask
 
-            # If size of inliers >= T, re-estimate the model and terminate
-            if maxNInlier >= nInlierThreshold:
-                break
+                # Adaptively determine the number of sample
+                nIter = np.log(1 - p) / np.log(1 - (nInlier / nMatch) ** 4 + 1e-16)
 
-            # Adaptively determine the number of sample
-            nIter = np.log(1 - p) / np.log(1 - (nInlier / nMatch) ** 4 + 1e-14)
             it += 1
 
         # The homography is re-estimated using all points in the maximum inlier set
