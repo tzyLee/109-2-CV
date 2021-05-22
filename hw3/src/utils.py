@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.interpolate import LinearNDInterpolator
+from scipy.ndimage import map_coordinates
 
 
 def solve_homography(u, v):
@@ -115,47 +115,22 @@ def warping(src, dst, H, ymin, ymax, xmin, xmax, direction="b"):
         v[:, :2] /= v[:, 2, np.newaxis]
         v = v[:, :2]
 
-        v0 = np.floor(v).astype(np.int32)
-        v1 = v0 + 1
         # 4.calculate the mask of the transformed coordinate (should not exceed the boundaries of source image)
         xy_min = np.array([0, 0])
         xy_max = np.array([w_src, h_src])
         mask = (xy_min <= v).all(axis=1) & (v < xy_max).all(axis=1)
         # 5.sample the source image with the masked and reshaped transformed coordinates
         u = u[mask, :2]
-        v0 = v0[mask, :]
-        v1 = v1[mask, :]
-        v = v[mask, :]
-        x = v[:, 0]
-        y = v[:, 1]
-        x0 = v0[:, 0]
-        y0 = v0[:, 1]
-        x1 = v1[:, 0]
-        y1 = v1[:, 1]
-        np.clip(x0, 0, w_src - 1, out=x0)
-        np.clip(y0, 0, h_src - 1, out=y0)
-        np.clip(x1, 0, w_src - 1, out=x1)
-        np.clip(y1, 0, h_src - 1, out=y1)
-
-        dx0 = x - x0
-        dy0 = y - y0
-        dx1 = x1 - x
-        dy1 = y1 - y
-
-        wbr = dx0 * dy0
-        wtr = dx0 * dy1
-        wtl = dx1 * dy1
-        wbl = dx1 * dy0
-
-        interpolated = (
-            wtl[..., None] * src[y0, x0, :]
-            + wbl[..., None] * src[y1, x0, :]
-            + wtr[..., None] * src[y0, x1, :]
-            + wbr[..., None] * src[y1, x1, :]
-        )
-        np.clip(interpolated, 0, 255, out=interpolated)
+        v = v[mask, :2]
         # 6. assign to destination image with proper masking
-        dst[u[:, 1], u[:, 0], :] = interpolated.astype(dst.dtype)
+        # backward warping without interpolation
+        # dst[u[:, 1], u[:, 0], :] = src[v[:, 1], v[:, 0], :]
+
+        # swap [x, y] to [y, x]
+        v[:, (0, 1)] = v[:, (1, 0)]
+        # use map_coordinates to perform spline interpolation
+        for c in range(ch):
+            dst[u[:, 1], u[:, 0], c] = map_coordinates(src[..., c], v.T, order=1)
     elif direction == "f":
         H_T = np.transpose(H)
         # 3.apply H to the source pixels and retrieve (u,v) pixels, then reshape to (ymax-ymin),(xmax-xmin)
