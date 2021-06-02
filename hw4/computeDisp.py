@@ -2,6 +2,9 @@ import numpy as np
 import cv2
 import cv2.ximgproc as xip
 
+sigmaSpace = 15
+sigmaColor = 45
+
 
 def computeLocalBinaryPattern(Img):
     bin = np.zeros_like(Img, dtype=np.uint8)
@@ -42,14 +45,17 @@ def popcount8(mat):
 def computeDisp(Il, Ir, max_disp):
     h, w, ch = Il.shape
     labels = np.zeros((h, w), dtype=np.uint8)
+    # >>> Pre-filtering
+    gradXIl = cv2.Sobel(Il, -1, 1, 0, ksize=3)
+    gradXIr = cv2.Sobel(Ir, -1, 1, 0, ksize=3)
 
     # >>> Cost Computation
     # TODO: Compute matching cost
     # [Tips] Census cost = Local binary pattern -> Hamming distance
     # [Tips] Set costs of out-of-bound pixels = cost of closest valid pixel
     # [Tips] Compute cost both Il to Ir and Ir to Il for later left-right consistency
-    binL = computeLocalBinaryPattern(Il)
-    binR = computeLocalBinaryPattern(Ir)
+    binL = computeLocalBinaryPattern(gradXIl)
+    binR = computeLocalBinaryPattern(gradXIr)
     costL = np.zeros((max_disp + 1, h, w, ch), dtype=np.uint8)
     costR = np.zeros((max_disp + 1, h, w, ch), dtype=np.uint8)
     for disp in range(0, max_disp + 1):
@@ -69,16 +75,16 @@ def computeDisp(Il, Ir, max_disp):
             costL[disp, ...],
             dst=costL[disp, ...],
             d=-1,
-            sigmaColor=70,
-            sigmaSpace=15,
+            sigmaColor=sigmaColor,
+            sigmaSpace=sigmaSpace,
         )
         xip.jointBilateralFilter(
             Ir,
             costR[disp, ...],
             dst=costR[disp, ...],
             d=-1,
-            sigmaColor=70,
-            sigmaSpace=15,
+            sigmaColor=sigmaColor,
+            sigmaSpace=sigmaSpace,
         )
 
     # hamming distance is at most 8 for each pixel per channel
@@ -96,17 +102,19 @@ def computeDisp(Il, Ir, max_disp):
     # TODO: Do whatever to enhance the disparity map
     # [Tips] Left-right consistency check -> Hole filling -> Weighted median filtering
     x, y = np.meshgrid(np.arange(0, w), np.arange(0, h))
-    valid = dispL == dispR[y, x - dispL]
+    newX = x - dispL
+    valid = (dispL == dispR[y, newX]) & (newX >= 0)
     invalid = ~valid
 
     fL = dispL.copy()
     fR = dispL.copy()
-    # TODO pad maxiimum or holds in the boundary
+    # TODO Pad maximum for holes in the boundary
+
     idx = np.where(valid, np.arange(0, w), 0)
     np.maximum.accumulate(idx, axis=1, out=idx)
     fL[invalid] = fL[np.nonzero(invalid)[0], idx[invalid]]
 
-    idx2 = idx.copy()
+    idx2 = np.where(valid, np.arange(0, w), 0)
     np.maximum.accumulate(idx2[::-1], axis=1, out=idx2[::-1])
     fR[invalid] = fR[np.nonzero(invalid)[0], idx2[invalid]]
 
