@@ -59,7 +59,7 @@ def computeDisp(Il, Ir, max_disp):
     costL = np.zeros((max_disp + 1, h, w, ch), dtype=np.uint8)
     costR = np.zeros((max_disp + 1, h, w, ch), dtype=np.uint8)
     for disp in range(0, max_disp + 1):
-        cost = popcount8(binL[:, disp:, :] ^ binR[:, : w - disp, :])
+        cost = cv2.absdiff(Il[:, disp:, :], Ir[:, : w - disp, :])
         # costL
         costL[disp, :, disp:, :] = cost
         costL[disp, :, :disp, :] = cost[:, np.newaxis, 0, :]
