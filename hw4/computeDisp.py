@@ -6,11 +6,11 @@ d = 12
 sigmaSpace = 15
 sigmaColor = 20
 lambdaCost = 400
-penalty1 = 0.005
+penalty1 = 0.0095
 penalty2 = 0.07
 
 
-def computeLocalBinaryPattern(Img, windowSize=7):
+def computeLocalBinaryPattern(Img, windowSize=5):
     R = windowSize // 2
     census = np.zeros_like(Img, dtype=np.uint64)
     Img = cv2.copyMakeBorder(
