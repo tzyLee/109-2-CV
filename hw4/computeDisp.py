@@ -15,12 +15,12 @@ def computeLocalBinaryPattern(Img, windowSize=7):
     )
     h, w, _ = Img.shape
     center = Img[R : h - R, R : w - R, :]
-    offsets = [
-        (r, c) for r in range(windowSize) for c in range(windowSize) if not r == R == c
-    ]
-    for r, c in offsets:
-        census |= Img[r : r + h - R * 2, c : c + w - R * 2, :] >= center
-        census <<= 1
+    for r in range(windowSize):
+        for c in range(windowSize):
+            if r == c == R:
+                continue
+            census |= Img[r : r + h - R * 2, c : c + w - R * 2, :] >= center
+            census <<= 1
     return census
 
 
@@ -39,25 +39,31 @@ def computeDisp(Il, Ir, max_disp):
     labels = np.zeros((h, w), dtype=np.uint8)
 
     # >>> Cost Computation
-    # TODO: Compute matching cost
+    # Compute matching cost
     # [Tips] Census cost = Local binary pattern -> Hamming distance
     # [Tips] Set costs of out-of-bound pixels = cost of closest valid pixel
     # [Tips] Compute cost both Il to Ir and Ir to Il for later left-right consistency
     binL = computeLocalBinaryPattern(Il)
     binR = computeLocalBinaryPattern(Ir)
-    costL = np.zeros((max_disp + 1, h, w, ch), dtype=np.uint8)
-    costR = np.zeros((max_disp + 1, h, w, ch), dtype=np.uint8)
+    costL = np.zeros((max_disp + 1, h, w), dtype=np.uint8)
+    costR = np.zeros((max_disp + 1, h, w), dtype=np.uint8)
     for disp in range(0, max_disp + 1):
-        cost = popcount64(binL[:, disp:, :] ^ binR[:, : w - disp, :])
-        # costL
-        costL[disp, :, disp:, :] = cost
-        costL[disp, :, :disp, :] = cost[:, np.newaxis, 0, :]
-        # costR
-        costR[disp, :, : w - disp, :] = cost
-        costR[disp, :, w - disp :, :] = cost[:, np.newaxis, -1, :]
+        # > costL
+        tmpR = np.zeros_like(binR, dtype=np.uint64)
+        tmpR[:, disp:, :] = binR[:, : w - disp, :]
+        # hamming distance is at most 8 for each pixel per channel
+        # When 8*ch < 256, i.e. ch < 32, summing cost over channels won't overflow
+        costL[disp, ...] = popcount64(binL ^ tmpR).sum(axis=-1)
+        # costL[disp, :, :disp, :] = cost[:, np.newaxis, 0, :]
+
+        # > costR
+        tmpL = np.zeros_like(binL, dtype=np.uint64)
+        tmpL[:, : w - disp, :] = binL[:, disp:, :]
+        costR[disp, ...] = popcount64(tmpL ^ binR).sum(axis=-1)
+        # costR[disp, :, w - disp :, :] = cost[:, np.newaxis, -1, :]
 
         # >>> Cost Aggregation
-        # TODO: Refine the cost according to nearby costs
+        # Refine the cost according to nearby costs
         # [Tips] Joint bilateral filter (for the cost of each disparty)
         xip.jointBilateralFilter(
             Il,
@@ -76,37 +82,39 @@ def computeDisp(Il, Ir, max_disp):
             sigmaSpace=sigmaSpace,
         )
 
-    # hamming distance is at most 8 for each pixel per channel
-    # When 8*ch < 256, i.e. ch < 32, summing cost over channels won't overflow
-    costL = costL.sum(axis=-1)
-    costR = costR.sum(axis=-1)
-
     # >>> Disparity Optimization
-    # TODO: Determine disparity based on estimated cost.
+    # Determine disparity based on estimated cost.
     # [Tips] Winner-take-all
     dispL = np.argmin(costL, axis=0)
     dispR = np.argmin(costR, axis=0)
 
     # >>> Disparity Refinement
-    # TODO: Do whatever to enhance the disparity map
+    # Do whatever to enhance the disparity map
     # [Tips] Left-right consistency check -> Hole filling -> Weighted median filtering
     x, y = np.meshgrid(np.arange(0, w), np.arange(0, h))
     newX = x - dispL
     valid = (dispL == dispR[y, newX]) & (newX >= 0)
+
+    # Pad maximum for holes in the boundary
+    dispL = np.pad(dispL, pad_width=1, constant_values=max_disp)
+    valid = np.pad(valid, pad_width=1, constant_values=True)
     invalid = ~valid
 
     fL = dispL.copy()
     fR = dispL.copy()
-    # TODO Pad maximum for holes in the boundary
-
-    idx = np.where(valid, np.arange(0, w), 0)
+    # Fill holes from left to right
+    idx = np.where(valid, np.arange(0, w + 2), 0)
     np.maximum.accumulate(idx, axis=1, out=idx)
     fL[invalid] = fL[np.nonzero(invalid)[0], idx[invalid]]
 
-    idx2 = np.where(valid, np.arange(0, w), 0)
-    np.maximum.accumulate(idx2[::-1], axis=1, out=idx2[::-1])
+    # Fill holes from right to left
+    idx2 = np.where(valid[:, ::-1], np.arange(0, w + 2), 0)
+    np.maximum.accumulate(idx2, axis=1, out=idx2)
+    idx2 = w + 1 - idx2[:, ::-1]
     fR[invalid] = fR[np.nonzero(invalid)[0], idx2[invalid]]
 
-    filled = np.minimum(fL, fR).astype(np.uint8)
+    filled = np.minimum(fL, fR)[1:-1, 1:-1].astype(np.uint8)
+
+    # Weighted median filtering
     xip.weightedMedianFilter(Il, filled, dst=labels, r=5)
     return labels
