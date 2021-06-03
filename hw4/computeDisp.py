@@ -5,6 +5,7 @@ import cv2.ximgproc as xip
 d = 12
 sigmaSpace = 15
 sigmaColor = 20
+lambdaCost = 400
 
 
 def computeLocalBinaryPattern(Img, windowSize=7):
@@ -31,12 +32,15 @@ def popcount64(mat):
     mat[...] = (mat & 0x00FF00FF00FF00FF) + ((mat & 0xFF00FF00FF00FF00) >> 8)
     mat[...] = (mat & 0x0000FFFF0000FFFF) + ((mat & 0xFFFF0000FFFF0000) >> 16)
     mat[...] = (mat & 0x00000000FFFFFFFF) + (mat >> 32)
-    return mat.astype(np.uint8)
+    return mat
 
 
 def computeDisp(Il, Ir, max_disp):
     h, w, ch = Il.shape
     labels = np.zeros((h, w), dtype=np.uint8)
+
+    Ilf = Il.astype(np.float32)
+    Irf = Ir.astype(np.float32)
 
     # >>> Cost Computation
     # Compute matching cost
@@ -45,12 +49,14 @@ def computeDisp(Il, Ir, max_disp):
     # [Tips] Compute cost both Il to Ir and Ir to Il for later left-right consistency
     binL = computeLocalBinaryPattern(Il)
     binR = computeLocalBinaryPattern(Ir)
-    costL = np.zeros((max_disp + 1, h, w), dtype=np.uint8)
-    costR = np.zeros((max_disp + 1, h, w), dtype=np.uint8)
+    costL = np.zeros((max_disp + 1, h, w), dtype=np.float32)
+    costR = np.zeros((max_disp + 1, h, w), dtype=np.float32)
     for disp in range(0, max_disp + 1):
         # hamming distance is at most 8 for each pixel per channel
         # When 8*ch < 256, i.e. ch < 32, summing cost over channels won't overflow
-        cost = popcount64(binL[:, disp:, :] ^ binR[:, : w - disp, :]).sum(axis=-1)
+        cost = popcount64(binL[:, disp:, :] ^ binR[:, : w - disp, :]).astype(np.float32)
+        cost = 1 - np.exp(-cost / lambdaCost)
+        cost = cost.sum(axis=-1)
 
         # > costL
         costL[disp, :, disp:] = cost
@@ -64,7 +70,7 @@ def computeDisp(Il, Ir, max_disp):
         # Refine the cost according to nearby costs
         # [Tips] Joint bilateral filter (for the cost of each disparty)
         xip.jointBilateralFilter(
-            Il,
+            Ilf,
             costL[disp, ...],
             dst=costL[disp, ...],
             d=d,
@@ -72,7 +78,7 @@ def computeDisp(Il, Ir, max_disp):
             sigmaSpace=sigmaSpace,
         )
         xip.jointBilateralFilter(
-            Ir,
+            Irf,
             costR[disp, ...],
             dst=costR[disp, ...],
             d=d,
