@@ -3,51 +3,43 @@ import cv2
 import cv2.ximgproc as xip
 
 sigmaSpace = 15
-sigmaColor = 45
+sigmaColor = 20
 
 
-def computeLocalBinaryPattern(Img):
-    bin = np.zeros_like(Img, dtype=np.uint8)
-    # Top left
-    bin[1:, 1:, :] |= Img[:-1, :-1, :] >= Img[1:, 1:, :]
-    bin <<= 1
-    # Top
-    bin[1:, :, :] |= Img[:-1, :, :] >= Img[1:, :, :]
-    bin <<= 1
-    # Top right
-    bin[1:, :-1, :] |= Img[:-1, 1:, :] >= Img[1:, :-1, :]
-    bin <<= 1
-    # Left
-    bin[:, 1:, :] |= Img[:, :-1, :] >= Img[:, 1:, :]
-    bin <<= 1
-    # Right
-    bin[:, :-1, :] |= Img[:, 1:, :] >= Img[:, :-1, :]
-    bin <<= 1
-    # Bottom left
-    bin[:-1, 1:, :] |= Img[1:, :-1, :] >= Img[:-1, 1:, :]
-    bin <<= 1
-    # Bottom
-    bin[:-1, :, :] |= Img[1:, :, :] >= Img[:-1, :, :]
-    bin <<= 1
-    # Bottom right
-    bin[:-1, :-1, :] |= Img[1:, 1:, :] >= Img[:-1, :-1, :]
-    return bin
+def computeLocalBinaryPattern(Img, windowSize=7):
+    R = windowSize // 2
+    census = np.zeros_like(Img, dtype=np.uint64)
+    Img = cv2.copyMakeBorder(
+        Img, top=R, left=R, right=R, bottom=R, borderType=cv2.BORDER_CONSTANT, value=0
+    )
+    h, w, _ = Img.shape
+    center = Img[R : h - R, R : w - R, :]
+    offsets = [
+        (r, c) for r in range(windowSize) for c in range(windowSize) if not r == R == c
+    ]
+    for r, c in offsets:
+        census |= Img[r : r + h - R * 2, c : c + w - R * 2, :] >= center
+        census <<= 1
+    return census
 
 
-def popcount8(mat):
-    mat[...] = (mat & 0b01010101) + ((mat & 0b10101010) >> 1)
-    mat[...] = (mat & 0b00110011) + ((mat & 0b11001100) >> 2)
-    # mat[...] = (mat & 0b00001111) + ((mat & 0b11110000) >> 4)
-    mat[...] = (mat & 0b00001111) + (mat >> 4)
-    return mat
+def popcount64(mat):
+    mat[...] = (mat & 0x5555555555555555) + ((mat & 0xAAAAAAAAAAAAAAAA) >> 1)
+    mat[...] = (mat & 0x3333333333333333) + ((mat & 0xCCCCCCCCCCCCCCCC) >> 2)
+    mat[...] = (mat & 0x0F0F0F0F0F0F0F0F) + ((mat & 0xF0F0F0F0F0F0F0F0) >> 4)
+    mat[...] = (mat & 0x00FF00FF00FF00FF) + ((mat & 0xFF00FF00FF00FF00) >> 8)
+    mat[...] = (mat & 0x0000FFFF0000FFFF) + ((mat & 0xFFFF0000FFFF0000) >> 16)
+    mat[...] = (mat & 0x00000000FFFFFFFF) + (mat >> 32)
+    return mat.astype(np.uint8)
 
 
 def computeDisp(Il, Ir, max_disp):
     h, w, ch = Il.shape
     labels = np.zeros((h, w), dtype=np.uint8)
+
     # >>> Pre-filtering
-    gradXIl = cv2.Sobel(Il, -1, 1, 0, ksize=3)
-    gradXIr = cv2.Sobel(Ir, -1, 1, 0, ksize=3)
+    gradXIl = cv2.Sobel(Il, -1, 1, 0, ksize=5)
+    gradXIr = cv2.Sobel(Ir, -1, 1, 0, ksize=5)
 
     # >>> Cost Computation
     # TODO: Compute matching cost
@@ -59,7 +51,7 @@ def computeDisp(Il, Ir, max_disp):
     costL = np.zeros((max_disp + 1, h, w, ch), dtype=np.uint8)
     costR = np.zeros((max_disp + 1, h, w, ch), dtype=np.uint8)
     for disp in range(0, max_disp + 1):
-        cost = cv2.absdiff(Il[:, disp:, :], Ir[:, : w - disp, :])
+        cost = popcount64(binL[:, disp:, :] ^ binR[:, : w - disp, :])
         # costL
         costL[disp, :, disp:, :] = cost
         costL[disp, :, :disp, :] = cost[:, np.newaxis, 0, :]
