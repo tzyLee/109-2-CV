@@ -48,19 +48,17 @@ def computeDisp(Il, Ir, max_disp):
     costL = np.zeros((max_disp + 1, h, w), dtype=np.uint8)
     costR = np.zeros((max_disp + 1, h, w), dtype=np.uint8)
     for disp in range(0, max_disp + 1):
-        # > costL
-        tmpR = np.zeros_like(binR, dtype=np.uint64)
-        tmpR[:, disp:, :] = binR[:, : w - disp, :]
         # hamming distance is at most 8 for each pixel per channel
         # When 8*ch < 256, i.e. ch < 32, summing cost over channels won't overflow
-        costL[disp, ...] = popcount64(binL ^ tmpR).sum(axis=-1)
-        # costL[disp, :, :disp, :] = cost[:, np.newaxis, 0, :]
+        cost = popcount64(binL[:, disp:, :] ^ binR[:, : w - disp, :]).sum(axis=-1)
+
+        # > costL
+        costL[disp, :, disp:] = cost
+        costL[disp, :, :disp] = cost[:, np.newaxis, 0]
 
         # > costR
-        tmpL = np.zeros_like(binL, dtype=np.uint64)
-        tmpL[:, : w - disp, :] = binL[:, disp:, :]
-        costR[disp, ...] = popcount64(tmpL ^ binR).sum(axis=-1)
-        # costR[disp, :, w - disp :, :] = cost[:, np.newaxis, -1, :]
+        costR[disp, :, : w - disp] = cost
+        costR[disp, :, w - disp :] = cost[:, np.newaxis, -1]
 
         # >>> Cost Aggregation
         # Refine the cost according to nearby costs
