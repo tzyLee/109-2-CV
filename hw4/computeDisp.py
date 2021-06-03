@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import cv2.ximgproc as xip
 
+d = 12
 sigmaSpace = 15
 sigmaColor = 20
 
@@ -37,17 +38,13 @@ def computeDisp(Il, Ir, max_disp):
     h, w, ch = Il.shape
     labels = np.zeros((h, w), dtype=np.uint8)
 
-    # >>> Pre-filtering
-    gradXIl = cv2.Sobel(Il, -1, 1, 0, ksize=5)
-    gradXIr = cv2.Sobel(Ir, -1, 1, 0, ksize=5)
-
     # >>> Cost Computation
     # TODO: Compute matching cost
     # [Tips] Census cost = Local binary pattern -> Hamming distance
     # [Tips] Set costs of out-of-bound pixels = cost of closest valid pixel
     # [Tips] Compute cost both Il to Ir and Ir to Il for later left-right consistency
-    binL = computeLocalBinaryPattern(gradXIl)
-    binR = computeLocalBinaryPattern(gradXIr)
+    binL = computeLocalBinaryPattern(Il)
+    binR = computeLocalBinaryPattern(Ir)
     costL = np.zeros((max_disp + 1, h, w, ch), dtype=np.uint8)
     costR = np.zeros((max_disp + 1, h, w, ch), dtype=np.uint8)
     for disp in range(0, max_disp + 1):
@@ -66,7 +63,7 @@ def computeDisp(Il, Ir, max_disp):
             Il,
             costL[disp, ...],
             dst=costL[disp, ...],
-            d=-1,
+            d=d,
             sigmaColor=sigmaColor,
             sigmaSpace=sigmaSpace,
         )
@@ -74,7 +71,7 @@ def computeDisp(Il, Ir, max_disp):
             Ir,
             costR[disp, ...],
             dst=costR[disp, ...],
-            d=-1,
+            d=d,
             sigmaColor=sigmaColor,
             sigmaSpace=sigmaSpace,
         )
