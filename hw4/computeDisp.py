@@ -19,8 +19,8 @@ def computeLocalBinaryPattern(Img, windowSize=7):
         for c in range(windowSize):
             if r == c == R:
                 continue
-            census |= Img[r : r + h - R * 2, c : c + w - R * 2, :] >= center
             census <<= 1
+            census |= Img[r : r + h - R * 2, c : c + w - R * 2, :] >= center
     return census
 
 
@@ -114,5 +114,8 @@ def computeDisp(Il, Ir, max_disp):
     filled = np.minimum(fL, fR)[1:-1, 1:-1].astype(np.uint8)
 
     # Weighted median filtering
-    xip.weightedMedianFilter(Il, filled, dst=labels, r=5)
+    smoothIl = cv2.bilateralFilter(
+        Il, d=9, sigmaColor=sigmaColor, sigmaSpace=sigmaSpace
+    )
+    xip.weightedMedianFilter(smoothIl, filled, dst=labels, r=11)
     return labels
