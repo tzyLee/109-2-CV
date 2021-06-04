@@ -6,8 +6,8 @@ d = 12
 sigmaSpace = 15
 sigmaColor = 20
 lambdaCost = 400
-penalty1 = 0.0095
-penalty2 = 0.07
+penalty1 = 0.01
+penalty2 = 0.05
 
 
 def computeLocalBinaryPattern(Img, windowSize=5):
@@ -52,7 +52,7 @@ def costAggregate4(cost):
         minCostLR[1:-1, :] = cost[:, :, i] + np.minimum(
             np.minimum(minCostLR[:-2, :], minCostLR[2:, :]) + penalty1,
             np.minimum(minCostLR[1:-1, :], minAggCostLR + penalty2),
-        )
+        ) - minAggCostLR
         aggCostLR[:, :, i] = minCostLR[1:-1, :]
         minCostLR.min(axis=0, out=minAggCostLR)
 
@@ -67,7 +67,7 @@ def costAggregate4(cost):
         minCostRL[1:-1, :] = cost[:, :, i] + np.minimum(
             np.minimum(minCostRL[:-2, :], minCostRL[2:, :]) + penalty1,
             np.minimum(minCostRL[1:-1, :], minAggCostRL + penalty2),
-        )
+        ) - minAggCostRL
         aggCostRL[:, :, i] = minCostRL[1:-1, :]
         minCostRL.min(axis=0, out=minAggCostRL)
 
@@ -82,7 +82,7 @@ def costAggregate4(cost):
         minCostTB[1:-1, :] = cost[:, i, :] + np.minimum(
             np.minimum(minCostTB[:-2, :], minCostTB[2:, :]) + penalty1,
             np.minimum(minCostTB[1:-1, :], minAggCostTB + penalty2),
-        )
+        ) - minAggCostTB
         aggCostTB[:, i, :] = minCostTB[1:-1, :]
         minCostTB.min(axis=0, out=minAggCostTB)
 
@@ -97,7 +97,7 @@ def costAggregate4(cost):
         minCostBT[1:-1, :] = cost[:, i, :] + np.minimum(
             np.minimum(minCostBT[:-2, :], minCostBT[2:, :]) + penalty1,
             np.minimum(minCostBT[1:-1, :], minAggCostBT + penalty2),
-        )
+        ) - minAggCostBT
         aggCostBT[:, i, :] = minCostBT[1:-1, :]
         minCostBT.min(axis=0, out=minAggCostBT)
 
