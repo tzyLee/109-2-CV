@@ -8,6 +8,8 @@ sigmaColor = 20
 lambdaCost = 400
 penalty1 = 0.01
 penalty2Init = 2
+L1 = 5
+thresholdColor = 20
 
 
 def computeLocalBinaryPattern(Img, windowSize=5):
@@ -140,6 +142,66 @@ def costAggregate4(Img, cost):
     return aggCostW + aggCostE + aggCostN + aggCostS
 
 
+def findCross(Img, cost):
+    _, h, w = cost.shape
+
+    validAdjH = np.abs(Img[:, 1:, :] - Img[:, :-1, :]).max(axis=-1) < thresholdColor
+    validAdjV = np.abs(Img[1:, :, :] - Img[:-1, :, :]).max(axis=-1) < thresholdColor
+
+    # dist(self, left) < threshold
+    validAdjL = np.full((h, w), False)
+    validAdjL[:, 1:] = validAdjH
+
+    # dist(self, right) < threshold
+    validAdjR = np.full((h, w), False)
+    validAdjR[:, :-1] = validAdjH
+
+    # dist(self, up) < threshold
+    validAdjU = np.full((h, w), False)
+    validAdjU[1:, :] = validAdjV
+
+    # dist(self, down) < threshold
+    validAdjD = np.full((h, w), False)
+    validAdjD[:-1, :] = validAdjV
+
+    # 4 direction for each pixel
+    armLength = np.zeros((h, w, 4), dtype=np.int32)
+    for i in range(h):
+        for j in range(w):
+            centerPixel = Img[i, j, :]
+            # Left
+            L = max(j - L1, 0)
+            distCenter = np.abs(Img[i, L:j, :] - centerPixel).max(axis=-1)
+            inside = validAdjL[i, L:j] & (distCenter < thresholdColor)
+            notInside = ~inside[::-1]
+            # position of first False == arm length
+            armLength[i, j, 0] = np.argmax(notInside) if notInside.any() else j - L
+            # Right
+            R = min(j + L1 + 1, w)
+            distCenter = np.abs(Img[i, j + 1 : R, :] - centerPixel).max(axis=-1)
+            inside = validAdjR[i, j + 1 : R] & (distCenter < thresholdColor)
+            notInside = ~inside
+            armLength[i, j, 1] = np.argmax(notInside) if notInside.any() else R - j - 1
+            # Up
+            U = max(i - L1, 0)
+            distCenter = np.abs(Img[U:i, j, :] - centerPixel).max(axis=-1)
+            inside = validAdjU[U:i, j] & (distCenter < thresholdColor)
+            notInside = ~inside[::-1]
+            armLength[i, j, 2] = np.argmax(notInside) if notInside.any() else i - U
+            # Down
+            D = min(i + L1 + 1, h)
+            distCenter = np.abs(Img[i + 1 : D, j, :] - centerPixel).max(axis=-1)
+            inside = validAdjD[i + 1 : D, j] & (distCenter < thresholdColor)
+            notInside = ~inside
+            armLength[i, j, 3] = np.argmax(notInside) if notInside.any() else D - i - 1
+
+    return armLength
+
+
+def crossBasedAggregate(cost, armLength):
+    pass
+
+
 def computeDisp(Il, Ir, max_disp):
     h, w, ch = Il.shape
     labels = np.zeros((h, w), dtype=np.uint8)
@@ -174,6 +236,7 @@ def computeDisp(Il, Ir, max_disp):
     # >>> Cost Aggregation
     # Refine the cost according to nearby costs
     # [Tips] Joint bilateral filter (for the cost of each disparty)
+    findCross(Ilf, costL)
     aggCostL = costAggregate4(Ilf, costL)
     aggCostR = costAggregate4(Irf, costR)
 
