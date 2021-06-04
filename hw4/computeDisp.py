@@ -8,8 +8,7 @@ sigmaColor = 20
 lambdaCost = 400
 penalty1 = 0.01
 penalty2Init = 2
-L1 = 5
-thresholdColor = 20
+thresholdUnique = 0.03
 
 
 def computeLocalBinaryPattern(Img, windowSize=5):
@@ -142,116 +141,6 @@ def costAggregate4(Img, cost):
     return aggCostW + aggCostE + aggCostN + aggCostS
 
 
-def findCross(Img, cost):
-    _, h, w = cost.shape
-
-    validAdjH = np.abs(Img[:, 1:, :] - Img[:, :-1, :]).max(axis=-1) < thresholdColor
-    validAdjV = np.abs(Img[1:, :, :] - Img[:-1, :, :]).max(axis=-1) < thresholdColor
-
-    # dist(self, left) < threshold
-    validAdjL = np.full((h, w), False)
-    validAdjL[:, 1:] = validAdjH
-
-    # dist(self, right) < threshold
-    validAdjR = np.full((h, w), False)
-    validAdjR[:, :-1] = validAdjH
-
-    # dist(self, up) < threshold
-    validAdjU = np.full((h, w), False)
-    validAdjU[1:, :] = validAdjV
-
-    # dist(self, down) < threshold
-    validAdjD = np.full((h, w), False)
-    validAdjD[:-1, :] = validAdjV
-
-    # 4 direction for each pixel
-    armLength = np.zeros((h, w, 4), dtype=np.int32)
-    for i in range(h):
-        for j in range(w):
-            centerPixel = Img[i, j, :]
-            # Left
-            L = max(j - L1, 0)
-            distCenter = np.abs(Img[i, L:j, :] - centerPixel).max(axis=-1)
-            inside = validAdjL[i, L:j] & (distCenter < thresholdColor)
-            notInside = ~inside[::-1]
-            # position of first False == arm length
-            armLength[i, j, 0] = np.argmax(notInside) if notInside.any() else j - L
-            # Right
-            R = min(j + L1 + 1, w)
-            distCenter = np.abs(Img[i, j + 1 : R, :] - centerPixel).max(axis=-1)
-            inside = validAdjR[i, j + 1 : R] & (distCenter < thresholdColor)
-            notInside = ~inside
-            armLength[i, j, 1] = np.argmax(notInside) if notInside.any() else R - j - 1
-            # Up
-            U = max(i - L1, 0)
-            distCenter = np.abs(Img[U:i, j, :] - centerPixel).max(axis=-1)
-            inside = validAdjU[U:i, j] & (distCenter < thresholdColor)
-            notInside = ~inside[::-1]
-            armLength[i, j, 2] = np.argmax(notInside) if notInside.any() else i - U
-            # Down
-            D = min(i + L1 + 1, h)
-            distCenter = np.abs(Img[i + 1 : D, j, :] - centerPixel).max(axis=-1)
-            inside = validAdjD[i + 1 : D, j] & (distCenter < thresholdColor)
-            notInside = ~inside
-            armLength[i, j, 3] = np.argmax(notInside) if notInside.any() else D - i - 1
-    return armLength
-
-
-def crossBasedAggregate(cost, armLength):
-    crossBasedAggregateHorizontal(cost, armLength)
-    crossBasedAggregateVertical(cost, armLength)
-    crossBasedAggregateHorizontal(cost, armLength)
-    crossBasedAggregateVertical(cost, armLength)
-    return cost
-
-
-def crossBasedAggregateHorizontal(cost, armLength):
-    nDisp, h, w = cost.shape
-
-    for disp in range(nDisp):
-        tmpCost = np.zeros((h, w), dtype=cost.dtype)
-        tmpCost2 = np.zeros((h, w), dtype=cost.dtype)
-        for i in range(h):
-            for j in range(w):
-                tmpCost[i, j] = sum(
-                    cost[disp, j - armLength[i, j, 0] : j + armLength[i, j, 1] + 1, x]
-                    for x in range()
-                )
-
-        for i in range(h):
-            for j in range(w):
-                N = 0
-                for y in range(i - armLength[i, j, 2], i + armLength[i, j, 3] + 1):
-                    tmpCost2[i, j] += tmpCost[y, j]
-                    N += armLength[y, j, 0] + armLength[y, j, 1] + 1
-                tmpCost2[i, j] /= N
-
-        cost[disp, ...] = tmpCost2
-
-
-def crossBasedAggregateVertical(cost, armLength):
-    nDisp, h, w = cost.shape
-
-    for disp in range(nDisp):
-        tmpCost = np.zeros((h, w), dtype=cost.dtype)
-        tmpCost2 = np.zeros((h, w), dtype=cost.dtype)
-        for i in range(h):
-            for j in range(w):
-                tmpCost[i, j] = cost[
-                    disp, i - armLength[i, j, 2] : i + armLength[i, j, 3] + 1, j
-                ].sum()
-
-        for i in range(h):
-            for j in range(w):
-                N = 0
-                for x in range(j - armLength[i, j, 0], j + armLength[i, j, 1] + 1):
-                    tmpCost2[i, j] += tmpCost[i, x]
-                    N += armLength[i, x, 2] + armLength[i, x, 3] + 1
-                tmpCost2[i, j] /= N
-
-        cost[disp, ...] = tmpCost2
-
-
 def computeDisp(Il, Ir, max_disp):
     h, w, ch = Il.shape
     labels = np.zeros((h, w), dtype=np.uint8)
@@ -318,7 +207,13 @@ def computeDisp(Il, Ir, max_disp):
     # [Tips] Left-right consistency check -> Hole filling -> Weighted median filtering
     x, y = np.meshgrid(np.arange(0, w), np.arange(0, h))
     newX = x - dispL
-    valid = (dispL == dispR[y, newX]) & (newX >= 0)
+    consistent = (dispL == dispR[y, newX]) & (newX >= 0)
+
+    # Uniqueness constraint
+    aggCostL.partition(1, axis=0)
+    unique = (aggCostL[1, ...] - aggCostL[0, ...]) > aggCostL[0, ...] * thresholdUnique
+
+    valid = consistent & unique
 
     # Pad maximum for holes in the boundary
     dispL = np.pad(dispL, pad_width=1, constant_values=max_disp)
