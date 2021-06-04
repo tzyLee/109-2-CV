@@ -41,67 +41,67 @@ def costAggregate4(cost):
     nDisp, h, w = cost.shape
 
     # Perform 4-direction DP-based cost aggregation
-    # Left to right
-    aggCostLR = np.zeros_like(cost, dtype=np.float32)
-    minCostLR = np.full((nDisp + 2, h), np.inf, dtype=np.float32)
+    # Left to center (West)
+    aggCostW = np.zeros_like(cost, dtype=np.float32)
+    minCostW = np.full((nDisp + 2, h), np.inf, dtype=np.float32)
 
-    minCostLR[1:-1, :] = cost[:, :, 0]
-    aggCostLR[:, :, 0] = cost[:, :, 0]
-    minAggCostLR = minCostLR.min(axis=0)
+    minCostW[1:-1, :] = cost[:, :, 0]
+    aggCostW[:, :, 0] = cost[:, :, 0]
+    minAggCostW = minCostW.min(axis=0)
     for i in range(1, w):
-        minCostLR[1:-1, :] = cost[:, :, i] + np.minimum(
-            np.minimum(minCostLR[:-2, :], minCostLR[2:, :]) + penalty1,
-            np.minimum(minCostLR[1:-1, :], minAggCostLR + penalty2),
-        ) - minAggCostLR
-        aggCostLR[:, :, i] = minCostLR[1:-1, :]
-        minCostLR.min(axis=0, out=minAggCostLR)
+        minCostW[1:-1, :] = cost[:, :, i] + np.minimum(
+            np.minimum(minCostW[:-2, :], minCostW[2:, :]) + penalty1,
+            np.minimum(minCostW[1:-1, :], minAggCostW + penalty2),
+        ) - minAggCostW
+        aggCostW[:, :, i] = minCostW[1:-1, :]
+        minCostW.min(axis=0, out=minAggCostW)
 
-    # Right to left
-    aggCostRL = np.zeros_like(cost, dtype=np.float32)
-    minCostRL = np.full((nDisp + 2, h), np.inf, dtype=np.float32)
+    # Right to center (East)
+    aggCostE = np.zeros_like(cost, dtype=np.float32)
+    minCostE = np.full((nDisp + 2, h), np.inf, dtype=np.float32)
 
-    minCostRL[1:-1, :] = cost[:, :, -1]
-    aggCostRL[:, :, -1] = cost[:, :, -1]
-    minAggCostRL = minCostRL.min(axis=0)
+    minCostE[1:-1, :] = cost[:, :, -1]
+    aggCostE[:, :, -1] = cost[:, :, -1]
+    minAggCostE = minCostE.min(axis=0)
     for i in reversed(range(w - 1)):
-        minCostRL[1:-1, :] = cost[:, :, i] + np.minimum(
-            np.minimum(minCostRL[:-2, :], minCostRL[2:, :]) + penalty1,
-            np.minimum(minCostRL[1:-1, :], minAggCostRL + penalty2),
-        ) - minAggCostRL
-        aggCostRL[:, :, i] = minCostRL[1:-1, :]
-        minCostRL.min(axis=0, out=minAggCostRL)
+        minCostE[1:-1, :] = cost[:, :, i] + np.minimum(
+            np.minimum(minCostE[:-2, :], minCostE[2:, :]) + penalty1,
+            np.minimum(minCostE[1:-1, :], minAggCostE + penalty2),
+        ) - minAggCostE
+        aggCostE[:, :, i] = minCostE[1:-1, :]
+        minCostE.min(axis=0, out=minAggCostE)
 
-    # Top to bottom
-    aggCostTB = np.zeros_like(cost, dtype=np.float32)
-    minCostTB = np.full((nDisp + 2, w), np.inf, dtype=np.float32)
+    # Top to center (North)
+    aggCostN = np.zeros_like(cost, dtype=np.float32)
+    minCostN = np.full((nDisp + 2, w), np.inf, dtype=np.float32)
 
-    minCostTB[1:-1, :] = cost[:, 0, :]
-    aggCostTB[:, 0, :] = cost[:, 0, :]
-    minAggCostTB = minCostTB.min(axis=0)
+    minCostN[1:-1, :] = cost[:, 0, :]
+    aggCostN[:, 0, :] = cost[:, 0, :]
+    minAggCostN = minCostN.min(axis=0)
     for i in range(1, h):
-        minCostTB[1:-1, :] = cost[:, i, :] + np.minimum(
-            np.minimum(minCostTB[:-2, :], minCostTB[2:, :]) + penalty1,
-            np.minimum(minCostTB[1:-1, :], minAggCostTB + penalty2),
-        ) - minAggCostTB
-        aggCostTB[:, i, :] = minCostTB[1:-1, :]
-        minCostTB.min(axis=0, out=minAggCostTB)
+        minCostN[1:-1, :] = cost[:, i, :] + np.minimum(
+            np.minimum(minCostN[:-2, :], minCostN[2:, :]) + penalty1,
+            np.minimum(minCostN[1:-1, :], minAggCostN + penalty2),
+        ) - minAggCostN
+        aggCostN[:, i, :] = minCostN[1:-1, :]
+        minCostN.min(axis=0, out=minAggCostN)
 
-    # Bottom to top
-    aggCostBT = np.zeros_like(cost, dtype=np.float32)
-    minCostBT = np.full((nDisp + 2, w), np.inf, dtype=np.float32)
+    # Bottom to center (South)
+    aggCostS = np.zeros_like(cost, dtype=np.float32)
+    minCostS = np.full((nDisp + 2, w), np.inf, dtype=np.float32)
 
-    minCostBT[1:-1, :] = cost[:, -1, :]
-    aggCostBT[:, -1, :] = cost[:, -1, :]
-    minAggCostBT = minCostBT.min(axis=0)
+    minCostS[1:-1, :] = cost[:, -1, :]
+    aggCostS[:, -1, :] = cost[:, -1, :]
+    minAggCostS = minCostS.min(axis=0)
     for i in reversed(range(h - 1)):
-        minCostBT[1:-1, :] = cost[:, i, :] + np.minimum(
-            np.minimum(minCostBT[:-2, :], minCostBT[2:, :]) + penalty1,
-            np.minimum(minCostBT[1:-1, :], minAggCostBT + penalty2),
-        ) - minAggCostBT
-        aggCostBT[:, i, :] = minCostBT[1:-1, :]
-        minCostBT.min(axis=0, out=minAggCostBT)
-
-    return aggCostLR + aggCostRL + aggCostTB + aggCostBT
+        minCostS[1:-1, :] = cost[:, i, :] + np.minimum(
+            np.minimum(minCostS[:-2, :], minCostS[2:, :]) + penalty1,
+            np.minimum(minCostS[1:-1, :], minAggCostS + penalty2),
+        ) - minAggCostS
+        aggCostS[:, i, :] = minCostS[1:-1, :]
+        minCostS.min(axis=0, out=minAggCostS)
+    
+    return aggCostW + aggCostE + aggCostN + aggCostS
 
 
 def computeDisp(Il, Ir, max_disp):
