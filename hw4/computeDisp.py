@@ -7,7 +7,7 @@ sigmaSpace = 15
 sigmaColor = 20
 lambdaCost = 400
 penalty1 = 0.01
-penalty2 = 0.05
+penalty2Init = 2
 
 
 def computeLocalBinaryPattern(Img, windowSize=5):
@@ -37,7 +37,7 @@ def popcount64(mat):
     return mat
 
 
-def costAggregate4(cost):
+def costAggregate4(Img, cost):
     nDisp, h, w = cost.shape
 
     # Perform 4-direction DP-based cost aggregation
@@ -53,7 +53,12 @@ def costAggregate4(cost):
             cost[:, :, i]
             + np.minimum(
                 np.minimum(minCostW[:-2, :], minCostW[2:, :]) + penalty1,
-                np.minimum(minCostW[1:-1, :], minAggCostW + penalty2),
+                np.minimum(
+                    minCostW[1:-1, :],
+                    minAggCostW
+                    + penalty2Init
+                    / (np.abs(Img[:, i, :] - Img[:, i - 1, :]).sum(axis=-1) + 1e-6),
+                ),
             )
             - minAggCostW
         )
@@ -72,7 +77,12 @@ def costAggregate4(cost):
             cost[:, :, i]
             + np.minimum(
                 np.minimum(minCostE[:-2, :], minCostE[2:, :]) + penalty1,
-                np.minimum(minCostE[1:-1, :], minAggCostE + penalty2),
+                np.minimum(
+                    minCostE[1:-1, :],
+                    minAggCostE
+                    + penalty2Init
+                    / (np.abs(Img[:, i, :] - Img[:, i + 1, :]).sum(axis=-1) + 1e-16),
+                ),
             )
             - minAggCostE
         )
@@ -91,7 +101,12 @@ def costAggregate4(cost):
             cost[:, i, :]
             + np.minimum(
                 np.minimum(minCostN[:-2, :], minCostN[2:, :]) + penalty1,
-                np.minimum(minCostN[1:-1, :], minAggCostN + penalty2),
+                np.minimum(
+                    minCostN[1:-1, :],
+                    minAggCostN
+                    + penalty2Init
+                    / (np.abs(Img[i, :, :] - Img[i - 1, :, :]).sum(axis=-1) + 1e-16),
+                ),
             )
             - minAggCostN
         )
@@ -110,7 +125,12 @@ def costAggregate4(cost):
             cost[:, i, :]
             + np.minimum(
                 np.minimum(minCostS[:-2, :], minCostS[2:, :]) + penalty1,
-                np.minimum(minCostS[1:-1, :], minAggCostS + penalty2),
+                np.minimum(
+                    minCostS[1:-1, :],
+                    minAggCostS
+                    + penalty2Init
+                    / (np.abs(Img[i, :, :] - Img[i + 1, :, :]).sum(axis=-1) + 1e-16),
+                ),
             )
             - minAggCostS
         )
@@ -154,8 +174,8 @@ def computeDisp(Il, Ir, max_disp):
     # >>> Cost Aggregation
     # Refine the cost according to nearby costs
     # [Tips] Joint bilateral filter (for the cost of each disparty)
-    aggCostL = costAggregate4(costL)
-    aggCostR = costAggregate4(costR)
+    aggCostL = costAggregate4(Ilf, costL)
+    aggCostR = costAggregate4(Irf, costR)
 
     for disp in range(0, max_disp + 1):
         xip.jointBilateralFilter(
