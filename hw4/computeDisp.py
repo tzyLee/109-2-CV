@@ -49,10 +49,14 @@ def costAggregate4(cost):
     aggCostW[:, :, 0] = cost[:, :, 0]
     minAggCostW = minCostW.min(axis=0)
     for i in range(1, w):
-        minCostW[1:-1, :] = cost[:, :, i] + np.minimum(
-            np.minimum(minCostW[:-2, :], minCostW[2:, :]) + penalty1,
-            np.minimum(minCostW[1:-1, :], minAggCostW + penalty2),
-        ) - minAggCostW
+        minCostW[1:-1, :] = (
+            cost[:, :, i]
+            + np.minimum(
+                np.minimum(minCostW[:-2, :], minCostW[2:, :]) + penalty1,
+                np.minimum(minCostW[1:-1, :], minAggCostW + penalty2),
+            )
+            - minAggCostW
+        )
         aggCostW[:, :, i] = minCostW[1:-1, :]
         minCostW.min(axis=0, out=minAggCostW)
 
@@ -64,10 +68,14 @@ def costAggregate4(cost):
     aggCostE[:, :, -1] = cost[:, :, -1]
     minAggCostE = minCostE.min(axis=0)
     for i in reversed(range(w - 1)):
-        minCostE[1:-1, :] = cost[:, :, i] + np.minimum(
-            np.minimum(minCostE[:-2, :], minCostE[2:, :]) + penalty1,
-            np.minimum(minCostE[1:-1, :], minAggCostE + penalty2),
-        ) - minAggCostE
+        minCostE[1:-1, :] = (
+            cost[:, :, i]
+            + np.minimum(
+                np.minimum(minCostE[:-2, :], minCostE[2:, :]) + penalty1,
+                np.minimum(minCostE[1:-1, :], minAggCostE + penalty2),
+            )
+            - minAggCostE
+        )
         aggCostE[:, :, i] = minCostE[1:-1, :]
         minCostE.min(axis=0, out=minAggCostE)
 
@@ -79,10 +87,14 @@ def costAggregate4(cost):
     aggCostN[:, 0, :] = cost[:, 0, :]
     minAggCostN = minCostN.min(axis=0)
     for i in range(1, h):
-        minCostN[1:-1, :] = cost[:, i, :] + np.minimum(
-            np.minimum(minCostN[:-2, :], minCostN[2:, :]) + penalty1,
-            np.minimum(minCostN[1:-1, :], minAggCostN + penalty2),
-        ) - minAggCostN
+        minCostN[1:-1, :] = (
+            cost[:, i, :]
+            + np.minimum(
+                np.minimum(minCostN[:-2, :], minCostN[2:, :]) + penalty1,
+                np.minimum(minCostN[1:-1, :], minAggCostN + penalty2),
+            )
+            - minAggCostN
+        )
         aggCostN[:, i, :] = minCostN[1:-1, :]
         minCostN.min(axis=0, out=minAggCostN)
 
@@ -94,13 +106,17 @@ def costAggregate4(cost):
     aggCostS[:, -1, :] = cost[:, -1, :]
     minAggCostS = minCostS.min(axis=0)
     for i in reversed(range(h - 1)):
-        minCostS[1:-1, :] = cost[:, i, :] + np.minimum(
-            np.minimum(minCostS[:-2, :], minCostS[2:, :]) + penalty1,
-            np.minimum(minCostS[1:-1, :], minAggCostS + penalty2),
-        ) - minAggCostS
+        minCostS[1:-1, :] = (
+            cost[:, i, :]
+            + np.minimum(
+                np.minimum(minCostS[:-2, :], minCostS[2:, :]) + penalty1,
+                np.minimum(minCostS[1:-1, :], minAggCostS + penalty2),
+            )
+            - minAggCostS
+        )
         aggCostS[:, i, :] = minCostS[1:-1, :]
         minCostS.min(axis=0, out=minAggCostS)
-    
+
     return aggCostW + aggCostE + aggCostN + aggCostS
 
 
