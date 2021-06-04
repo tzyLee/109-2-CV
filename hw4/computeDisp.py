@@ -194,12 +194,62 @@ def findCross(Img, cost):
             inside = validAdjD[i + 1 : D, j] & (distCenter < thresholdColor)
             notInside = ~inside
             armLength[i, j, 3] = np.argmax(notInside) if notInside.any() else D - i - 1
-
     return armLength
 
 
 def crossBasedAggregate(cost, armLength):
-    pass
+    crossBasedAggregateHorizontal(cost, armLength)
+    crossBasedAggregateVertical(cost, armLength)
+    crossBasedAggregateHorizontal(cost, armLength)
+    crossBasedAggregateVertical(cost, armLength)
+    return cost
+
+
+def crossBasedAggregateHorizontal(cost, armLength):
+    nDisp, h, w = cost.shape
+
+    for disp in range(nDisp):
+        tmpCost = np.zeros((h, w), dtype=cost.dtype)
+        tmpCost2 = np.zeros((h, w), dtype=cost.dtype)
+        for i in range(h):
+            for j in range(w):
+                tmpCost[i, j] = sum(
+                    cost[disp, j - armLength[i, j, 0] : j + armLength[i, j, 1] + 1, x]
+                    for x in range()
+                )
+
+        for i in range(h):
+            for j in range(w):
+                N = 0
+                for y in range(i - armLength[i, j, 2], i + armLength[i, j, 3] + 1):
+                    tmpCost2[i, j] += tmpCost[y, j]
+                    N += armLength[y, j, 0] + armLength[y, j, 1] + 1
+                tmpCost2[i, j] /= N
+
+        cost[disp, ...] = tmpCost2
+
+
+def crossBasedAggregateVertical(cost, armLength):
+    nDisp, h, w = cost.shape
+
+    for disp in range(nDisp):
+        tmpCost = np.zeros((h, w), dtype=cost.dtype)
+        tmpCost2 = np.zeros((h, w), dtype=cost.dtype)
+        for i in range(h):
+            for j in range(w):
+                tmpCost[i, j] = cost[
+                    disp, i - armLength[i, j, 2] : i + armLength[i, j, 3] + 1, j
+                ].sum()
+
+        for i in range(h):
+            for j in range(w):
+                N = 0
+                for x in range(j - armLength[i, j, 0], j + armLength[i, j, 1] + 1):
+                    tmpCost2[i, j] += tmpCost[i, x]
+                    N += armLength[i, x, 2] + armLength[i, x, 3] + 1
+                tmpCost2[i, j] /= N
+
+        cost[disp, ...] = tmpCost2
 
 
 def computeDisp(Il, Ir, max_disp):
@@ -236,7 +286,6 @@ def computeDisp(Il, Ir, max_disp):
     # >>> Cost Aggregation
     # Refine the cost according to nearby costs
     # [Tips] Joint bilateral filter (for the cost of each disparty)
-    findCross(Ilf, costL)
     aggCostL = costAggregate4(Ilf, costL)
     aggCostR = costAggregate4(Irf, costR)
 
