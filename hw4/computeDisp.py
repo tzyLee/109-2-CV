@@ -207,7 +207,8 @@ def computeDisp(Il, Ir, max_disp):
     # [Tips] Left-right consistency check -> Hole filling -> Weighted median filtering
     x, y = np.meshgrid(np.arange(0, w), np.arange(0, h))
     newX = x - dispL
-    consistent = (dispL == dispR[y, newX]) & (newX >= 0)
+    newX[newX < 0] = 0
+    consistent = dispL == dispR[y, newX]
 
     # Uniqueness constraint
     aggCostL.partition(1, axis=0)
